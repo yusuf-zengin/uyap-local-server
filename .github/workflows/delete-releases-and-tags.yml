@@ -1,0 +1,42 @@
+name: Delete All Releases and Tags
+
+permissions:
+  contents: write   # Release & tag silmek için zorunlu
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "TÜM RELEASE ve TAG'LER SİLİNECEK!"
+        type: boolean
+        required: true
+        default: false
+
+jobs:
+  delete_all:
+    if: ${{ github.event.inputs.confirm == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Delete all releases
+        run: |
+          echo "Fetching releases..."
+          releases=$(gh api repos/${{ github.repository }}/releases --jq '.[].id')
+
+          for id in $releases; do
+            echo "Deleting release ID: $id"
+            gh api --method DELETE repos/${{ github.repository }}/releases/$id
+          done
+
+      - name: Delete all tags (API only)
+        run: |
+          echo "Fetching tags..."
+          tags=$(gh api repos/${{ github.repository }}/git/refs/tags --jq '.[].ref' 2>/dev/null)
+
+          for ref in $tags; do
+            tag=${ref#refs/tags/}
+            echo "Deleting tag: $tag"
+            gh api --method DELETE repos/${{ github.repository }}/git/refs/tags/$tag || true
+          done
